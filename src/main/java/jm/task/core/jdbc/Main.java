@@ -18,11 +18,9 @@ public class Main {
                     userService.saveUser(n, "Userson", (byte) (Math.random() * 30));
                     System.out.printf("User с именем — %s добавлен в базу данных\n", n);
                 });
-        
-
         userService.getAllUsers().forEach(System.out::println);
-//        userService.cleanUsersTable();
-//        userService.dropUsersTable();
-        Util.closeConnectionJDBC();
+        userService.cleanUsersTable();
+        userService.dropUsersTable();
+        Util.closeConnection();
     }
 }

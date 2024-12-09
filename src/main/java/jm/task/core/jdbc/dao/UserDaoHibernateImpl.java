@@ -2,6 +2,7 @@ package jm.task.core.jdbc.dao;
 
 import jm.task.core.jdbc.model.User;
 import jm.task.core.jdbc.util.Util;
+import org.hibernate.HibernateException;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
 import org.hibernate.Transaction;
@@ -9,6 +10,7 @@ import org.hibernate.Transaction;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.function.Function;
 
 public class UserDaoHibernateImpl implements UserDao {
     private final SessionFactory sessionFactory = Util.getSessionFactory();
@@ -17,108 +19,62 @@ public class UserDaoHibernateImpl implements UserDao {
 
     }
 
-    @Override
-    public void createUsersTable() {
+    private <T> T exec(Function<Session, T> func) {
+        T out = null;
         Transaction transaction = null;
         try (Session session = sessionFactory.openSession()) {
             transaction = session.beginTransaction();
-            session.createNativeQuery("""
-                            create table if not exists user (
-                                 id bigint not null auto_increment primary key ,
-                                 name varchar(30) not null,
-                                 lastname varchar(30) not null,
-                                 age tinyint not null);
-                            """)
-                    .executeUpdate();
+            out = func.apply(session);
             transaction.commit();
-        } catch (Exception e) {
+        } catch (HibernateException e) {
             if (transaction != null) {
                 transaction.rollback();
             }
             e.printStackTrace();
         }
+        return out;
+    }
+
+    @Override
+    public void createUsersTable() {
+        exec(session -> session.createNativeQuery("""
+                                   create table if not exists users (
+                                        id bigint not null auto_increment primary key ,
+                                        name varchar(30) not null,
+                                        lastname varchar(30) not null,
+                                        age tinyint not null);
+                        """)
+                .executeUpdate());
     }
 
     @Override
     public void dropUsersTable() {
-        Transaction transaction = null;
-        try (Session session = sessionFactory.openSession()) {
-            transaction = session.beginTransaction();
-            session.createNativeQuery("drop table if exists user")
-                    .executeUpdate();
-            transaction.commit();
-        } catch (Exception e) {
-            if (transaction != null) {
-                transaction.rollback();
-            }
-            e.printStackTrace();
-        }
+        exec(session -> session.createNativeQuery("drop table if exists users")
+                .executeUpdate());
     }
 
     @Override
     public void saveUser(String name, String lastName, byte age) {
-        Transaction transaction = null;
-        try (Session session = sessionFactory.openSession()) {
-            transaction = session.beginTransaction();
-            session.save(new User(name, lastName, age));
-            transaction.commit();
-        } catch (Exception e) {
-            if (transaction != null) {
-                transaction.rollback();
-            }
-            e.printStackTrace();
-        }
+        exec(session -> session.save(new User(name, lastName, age)));
     }
 
     @Override
     public void removeUserById(long id) {
-        Transaction transaction = null;
-        try (Session session = sessionFactory.openSession()) {
-            transaction = session.beginTransaction();
-            session.createQuery("delete from User where id = :id")
-                    .setParameter("id", id)
-                    .executeUpdate();
-            transaction.commit();
-        } catch (Exception e) {
-            if (transaction != null) {
-
-                transaction.rollback();
-            }
-            e.printStackTrace();
-        }
+        exec(session -> session.createQuery("delete from User where id = :id")
+                .setParameter("id", id)
+                .executeUpdate());
     }
 
     @Override
     public List<User> getAllUsers() {
-        Transaction transaction = null;
-        List<User> users = null;
-        try (Session session = sessionFactory.openSession()) {
-            transaction = session.beginTransaction();
-            users = session.createQuery("select u from User u", User.class).list();
-            transaction.commit();
-        } catch (Exception e) {
-            if (transaction != null) {
-                transaction.rollback();
-            }
-            e.printStackTrace();
-        }
-        return users;
+        List<User> users = exec(session -> session.createQuery("select u from User u", User.class).list());
+        return users == null ? Collections.emptyList() : users;
     }
 
     @Override
     public void cleanUsersTable() {
-        Transaction transaction = null;
-        try (Session session = sessionFactory.openSession()) {
-            transaction = session.beginTransaction();
-            session.createNativeQuery("truncate user")
-                    .executeUpdate();
-            transaction.commit();
-        } catch (Exception e) {
-            if (transaction != null) {
-                transaction.rollback();
-            }
-            e.printStackTrace();
-        }
-
+        exec(session -> session.createNativeQuery("truncate users")
+                .executeUpdate());
     }
 }
+

@@ -1,6 +1,7 @@
 package jm.task.core.jdbc.util;
 
 import jm.task.core.jdbc.model.User;
+import org.hibernate.HibernateException;
 import org.hibernate.SessionFactory;
 import org.hibernate.boot.registry.StandardServiceRegistryBuilder;
 import org.hibernate.cfg.Configuration;
@@ -12,7 +13,7 @@ import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.Properties;
 
-public class Util {
+public final class Util {
     private static final String HOSTNAME = "localhost";
     private static final String DBNAME = "usersdb";
     private static final String USERNAME = "kata";
@@ -26,20 +27,19 @@ public class Util {
 
     }
 
-
     public static SessionFactory getSessionFactory() {
         if (sessionFactory == null) {
             try {
                 Configuration configuration = new Configuration();
-
                 Properties settings = new Properties();
+
                 settings.put(Environment.DRIVER, DRIVER);
                 settings.put(Environment.URL, "jdbc:mysql://%s:3306/%s?useSSL=false".formatted(HOSTNAME, DBNAME));
                 settings.put(Environment.USER, USERNAME);
                 settings.put(Environment.PASS, PASSWORD);
                 settings.put(Environment.DIALECT, DIALECT);
                 settings.put(Environment.CURRENT_SESSION_CONTEXT_CLASS, "thread");
-                settings.put(Environment.HBM2DDL_AUTO, "update");
+                settings.put(Environment.HBM2DDL_AUTO, "none");
 
                 configuration.setProperties(settings);
                 configuration.addAnnotatedClass(User.class);
@@ -59,7 +59,7 @@ public class Util {
         try {
             Class.forName(DRIVER);
             if (connection == null) {
-                connection = DriverManager.getConnection(String.format("jdbc:mysql://%s:3306/%s", HOSTNAME, DBNAME), USERNAME, PASSWORD);
+                connection = DriverManager.getConnection("jdbc:mysql://%s:3306/%s".formatted(HOSTNAME, DBNAME), USERNAME, PASSWORD);
             }
         } catch (ClassNotFoundException | SQLException e) {
             e.printStackTrace();
@@ -68,11 +68,18 @@ public class Util {
 
     }
 
-    public static void closeConnectionJDBC() {
+    public static void closeConnection() {
         if (connection != null) {
             try {
                 connection.close();
             } catch (SQLException e) {
+                e.printStackTrace();
+            }
+        }
+        if (sessionFactory != null) {
+            try {
+                sessionFactory.close();
+            } catch (HibernateException e) {
                 e.printStackTrace();
             }
         }
